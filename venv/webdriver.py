@@ -33,6 +33,15 @@ def pegar_links_artigos(link_simposio):
 
     # pegar links da primeira pagina
 
+    # artigos = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
+
+    artigos = driver.find_elements_by_xpath('//div/xpl-issue-results-items/div[1]/div[2]/ul/li[2]/xpl-view-html/div/a')
+    for art in artigos:
+        # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
+        print(art.get_attribute('href'))
+        # print(artigo.text)
+
+
     # for para pegar links a partir da segunda pagina
     for i in range(total_artigos - 1):
         pag = i + 2
@@ -40,6 +49,10 @@ def pegar_links_artigos(link_simposio):
         print(url)
         driver.get(url)
         WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
+        artigos = driver.find_elements_by_xpath('//div/xpl-issue-results-items/div[1]/div[2]/ul/li[2]/xpl-view-html/div/a')
+        for art in artigos:
+            # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
+            print(art.get_attribute('href'))
 
 
 chrome_options = Options()
