@@ -7,19 +7,67 @@ from selenium.webdriver.common.action_chains import ActionChains
 import os
 from os import path
 import csv
+import json
+import pandas
+
+class artigo() :
+    def __init__(self, seq, lan, abstract, title, pages):
+        self.seq = seq
+        self.lan = lan
+        self.abstract = abstract
+        self.title = title
+        self.pages = pages
+
+class autor() :
+    def __init__(self, article, authorFirstname, authorMiddlename, authorLastname, authorAffiliation, authorCountry, authorEmail, orcid):
+        self.article = article
+        self.authorFirstname = authorFirstname
+        self.authorMiddlename = authorMiddlename
+        self.authorLastname = authorLastname
+        self.authorAffiliation = authorAffiliation
+        self.authorCountry = authorCountry
+        self.authorEmail = authorEmail
+        self.orcid = orcid
+
+def salvar_autores(lista_autores):
+    filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo2.csv"
+    try:
+        with open('Autores.csv', mode='w') as arquivo:
+            field_names = ['article','authorFirstname','authorMiddlename','authorLastname','authorAffiliation','authorAffiliationEn','authorCountry','authorEmail','orcid','authorBio','authorBioEn']
+            writer = csv.writer(field_names)
+            for aut in lista_autores:
+                writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname, aut.authorAffiliation, aut.authorCountry, aut.authorEmail, aut.orcid])
+
+    except BaseException as e:
+        print('Excecao: ', filename)
+
+def monta_obj_artigo(seq, link, strPag):
+    driver.get(link)
+    pagina = strPag.split(":")
+    num_pag = pagina[1].split("-")
+    qtd_pag = int(num_pag[1].strip()) - int(num_pag[0].strip()) + 1 # removendo espacos em branco
+    WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.CLASS_NAME, 'document-title')))
+    resumo = driver.find_element_by_class_name('abstract-text.row')
+    print("Abstract: ", resumo.text)
+    titulo = driver.find_element_by_class_name("document-title")
+    print("Titulo: ", titulo.text)
+    a = artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag)
+    # driver.back()
+
+    return a
 
 
-def salvar_autor():
-    with open('Autores.csv', mode='w') as arquivo:
-        field_names = ['article','authorFirstname','authorMiddlename','authorLastname','authorAffiliation','authorAffiliationEn','authorCountry','authorEmail','orcid','authorBio','authorBioEn']
-        writer = csv.writer()
-
-
-def salvar_artigo():
-    with open('Artigos.csv', mode='w') as arquivo:
-        field_names = ['seq', 'language', 'sectionAbbrev', 'title',
-                       'abstract', 'keywords', 'orcid', 'pages', 'fileLabel', 'fileLink']
-        writer = csv.writer()
+def salvar_artigos(lista_artigos):
+    filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo.csv"
+    try:
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['seq','lan','abstract','title','pages'])
+            for art in lista_artigos:
+                writer.writerow([art.seq, art.lan, art.abstract.encode("utf-8"), art.title, art.pages])
+            f.close()
+    except BaseException as e:
+        print('Excecao: ', filename)
 
 def pegar_links_artigos(link_simposio):
     quant = driver.find_element_by_xpath('//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')
@@ -36,10 +84,36 @@ def pegar_links_artigos(link_simposio):
     # artigos = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
 
     artigos = driver.find_elements_by_xpath('//div/xpl-issue-results-items/div[1]/div[2]/ul/li[2]/xpl-view-html/div/a')
+    quant_artigos = artigos.__len__()
+
+    paginas = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div/div/xpl-issue-results-items/div[1]/div[1]/div[2]/div/div/span[3]')
+    quant_paginas = paginas.__len__()
+    corte = quant_paginas - quant_artigos
+    print(corte)
+
+    print(paginas)
+
+    nova_lista_artigos = []
+    # nova_lista_artigos.append(artigo(1,'EN', 'Teste de Resumo', 'Teste de Titulo', 10))
+    # nova_lista_artigos.append(artigo(2, 'EN', 'Teste de Resumo', 'Teste de Titulo', 15))
+    # salvar_artigos(nova_lista_artigos)
+
+    k = 0
+
+    lista_links = []
+    lista_paginas = []
+
     for art in artigos:
-        # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
-        print(art.get_attribute('href'))
-        # print(artigo.text)
+
+        link_artigo = art.get_attribute('href')
+        lista_links.append(str(link_artigo))
+        print(link_artigo)
+        pag = paginas[k + corte].text
+        lista_paginas.append(pag)
+        print(pag)
+        k = k + 1
+        # obj_artigo = monta_obj_artigo(k, link_artigo, pag)
+        # nova_lista_artigos.append(obj_artigo)
 
 
     # for para pegar links a partir da segunda pagina
@@ -50,9 +124,33 @@ def pegar_links_artigos(link_simposio):
         driver.get(url)
         WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
         artigos = driver.find_elements_by_xpath('//div/xpl-issue-results-items/div[1]/div[2]/ul/li[2]/xpl-view-html/div/a')
+        quant_artigos = artigos.__len__()
+        k = 0
+        paginas = driver.find_elements_by_xpath(
+            '//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div/div/xpl-issue-results-items/div[1]/div[1]/div[2]/div/div/span[3]')
+        quant_paginas = paginas.__len__()
+        corte = quant_paginas - quant_artigos
+
+
         for art in artigos:
             # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
             print(art.get_attribute('href'))
+            link_artigo = art.get_attribute('href')
+            lista_links.append(link_artigo)
+            pag = paginas[k + corte].text
+            print(pag)
+            lista_paginas.append(pag)
+            k = k + 1
+
+    k = 0
+    for i in range(lista_links.__len__()):
+        obj_artigo = monta_obj_artigo(k + 1, lista_links[k], lista_paginas[k])
+        nova_lista_artigos.append(obj_artigo)
+        k = k + 1
+
+    print("Pegou todos os artigos")
+    salvar_artigos(nova_lista_artigos)
+
 
 
 chrome_options = Options()
