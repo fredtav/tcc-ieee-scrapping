@@ -11,12 +11,13 @@ import json
 import pandas
 
 class artigo() :
-    def __init__(self, seq, lan, abstract, title, pages):
+    def __init__(self, seq, lan, abstract, title, pages, key_words):
         self.seq = seq
         self.lan = lan
         self.abstract = abstract
         self.title = title
         self.pages = pages
+        self.key_words = key_words
 
 class autor() :
     def __init__(self, article, authorFirstname, authorMiddlename, authorLastname, authorAffiliation, authorCountry, authorEmail, orcid):
@@ -34,7 +35,7 @@ def salvar_autores(lista_autores):
     try:
         with open('Autores.csv', mode='w') as arquivo:
             field_names = ['article','authorFirstname','authorMiddlename','authorLastname','authorAffiliation','authorAffiliationEn','authorCountry','authorEmail','orcid','authorBio','authorBioEn']
-            writer = csv.writer(field_names)
+            writer = csv.writer(field_names, delimiter=';')
             for aut in lista_autores:
                 writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname, aut.authorAffiliation, aut.authorCountry, aut.authorEmail, aut.orcid])
 
@@ -51,7 +52,15 @@ def monta_obj_artigo(seq, link, strPag):
     print("Abstract: ", resumo.text)
     titulo = driver.find_element_by_class_name("document-title")
     print("Titulo: ", titulo.text)
-    a = artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag)
+
+    keys = driver.find_elements_by_xpath('//*[@id="keywords"]/xpl-document-keyword-list/section/div/ul/li/ul')
+    chaves = str("")
+    for k in keys:
+        chaves = chaves + str(k.text) + ","
+
+    chaves = chaves[: chaves.__len__() - 1]
+    print(chaves)
+    a = artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag, chaves)
     # driver.back()
 
     return a
@@ -61,10 +70,10 @@ def salvar_artigos(lista_artigos):
     filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo.csv"
     try:
         with open(filename, 'w') as f:
-            writer = csv.writer(f)
-            writer.writerow(['seq','lan','abstract','title','pages'])
+            writer = csv.writer(f, delimiter=';')
+            writer.writerow(['seq','lan','abstract','title','pages','keyWords'])
             for art in lista_artigos:
-                writer.writerow([art.seq, art.lan, art.abstract.encode("utf-8"), art.title, art.pages])
+                writer.writerow([art.seq, art.lan, art.abstract.encode("utf-8"), art.title, art.pages, art.key_words.encode("utf-8")])
             f.close()
     except BaseException as e:
         print('Excecao: ', filename)
@@ -106,7 +115,7 @@ def pegar_links_artigos(link_simposio):
     for art in artigos:
 
         link_artigo = art.get_attribute('href')
-        lista_links.append(str(link_artigo))
+        lista_links.append(str(link_artigo + "keywords#keywords"))
         print(link_artigo)
         pag = paginas[k + corte].text
         lista_paginas.append(pag)
@@ -136,7 +145,7 @@ def pegar_links_artigos(link_simposio):
             # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
             print(art.get_attribute('href'))
             link_artigo = art.get_attribute('href')
-            lista_links.append(link_artigo)
+            lista_links.append(str(link_artigo + "keywords#keywords"))
             pag = paginas[k + corte].text
             print(pag)
             lista_paginas.append(pag)
