@@ -33,12 +33,16 @@ class autor() :
 def salvar_autores(lista_autores):
     filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo2.csv"
     try:
-        with open('Autores.csv', mode='w') as arquivo:
-            field_names = ['article','authorFirstname','authorMiddlename','authorLastname','authorAffiliation','authorAffiliationEn','authorCountry','authorEmail','orcid','authorBio','authorBioEn']
-            writer = csv.writer(field_names, delimiter=';')
+        with open(filename, mode='a') as arquivo:
+            field_names = ['article', 'authorFirstname', 'authorMiddlename', 'authorLastname', 'authorAffiliation',
+                           'authorAffiliationEn', 'authorCountry', 'authorEmail', 'orcid', 'authorBio', 'authorBioEn']
+            writer = csv.writer(arquivo, delimiter=';', lineterminator='\n')
+            if os.stat(filename).st_size == 0:
+                writer.writerow(field_names)
             for aut in lista_autores:
-                writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname, aut.authorAffiliation, aut.authorCountry, aut.authorEmail, aut.orcid])
-
+                writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname,
+                                 aut.authorAffiliation, aut.authorCountry, aut.authorEmail, aut.orcid])
+            arquivo.close()
     except BaseException as e:
         print('Excecao: ', filename)
 
@@ -61,9 +65,41 @@ def monta_obj_artigo(seq, link, strPag):
     chaves = chaves[: chaves.__len__() - 1]
     print(chaves)
     a = artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag, chaves)
-    # driver.back()
 
+    new_link = link.replace('keywords#keywords','authors#authors')
+    driver.get(new_link)
+
+    WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH,
+                                                                     '//*[@id="authors"]/div[1]/xpl-author-item/div/div/div/div[1]/a')))
+    autores = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[1]/a')
+    filiacoes = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[2]/div')
+
+    monta_obj_autor(seq, autores, filiacoes)
     return a
+
+def monta_obj_autor(seq, autores, filiacoes):
+
+    lista_autores = []
+    for i in range(autores.__len__()):
+        nome_autor = autores[i].text.split(' ')
+        primeiro_nome = nome_autor[0]
+        ultimo_nome = nome_autor[nome_autor.__len__() - 1]
+        nome_meio = ""
+        ran = int(nome_autor.__len__() - 2)
+        for j in range(0, ran):
+            nome_meio = nome_meio + nome_autor[j+1] + " "
+        nome_meio = nome_meio.strip()
+        filiacao = filiacoes[i].text
+        texto = filiacao.split(',')
+        country = ""
+        if texto.__len__() > 1:
+            country = texto[texto.__len__()-1].strip()  ## pode ser que mude
+        filiacao = texto[0]
+
+        aut = autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country, '', '')
+        lista_autores.append(aut)
+
+    salvar_autores(lista_autores)
 
 
 def salvar_artigos(lista_artigos):
@@ -99,14 +135,9 @@ def pegar_links_artigos(link_simposio):
     quant_paginas = paginas.__len__()
     corte = quant_paginas - quant_artigos
     print(corte)
-
     print(paginas)
 
     nova_lista_artigos = []
-    # nova_lista_artigos.append(artigo(1,'EN', 'Teste de Resumo', 'Teste de Titulo', 10))
-    # nova_lista_artigos.append(artigo(2, 'EN', 'Teste de Resumo', 'Teste de Titulo', 15))
-    # salvar_artigos(nova_lista_artigos)
-
     k = 0
 
     lista_links = []
@@ -121,8 +152,6 @@ def pegar_links_artigos(link_simposio):
         lista_paginas.append(pag)
         print(pag)
         k = k + 1
-        # obj_artigo = monta_obj_artigo(k, link_artigo, pag)
-        # nova_lista_artigos.append(obj_artigo)
 
 
     # for para pegar links a partir da segunda pagina
@@ -208,6 +237,9 @@ driver.get(artigo_url)
 WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
 
 pegar_links_artigos(artigo_url)
+
+driver.quit()
+exit()
 
 WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="LayoutWrapper"]/div/div/div/div[5]/div/xpl-root/div/xpl-document-details/div/div[1]/div/div[2]/section/div[2]/div/xpl-document-abstract/section/div[3]/div[1]/div/div/div')))
 resumo = driver.find_element_by_xpath('//*[@id="LayoutWrapper"]/div/div/div/div[5]/div/xpl-root/div/xpl-document-details/div/div[1]/div/div[2]/section/div[2]/div/xpl-document-abstract/section/div[3]/div[1]/div/div/div')
