@@ -6,11 +6,13 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 import os
 from os import path
+from pathlib import Path
 import csv
 import json
 import pandas
 
-class artigo() :
+
+class Artigo:
     def __init__(self, seq, lan, abstract, title, pages, key_words):
         self.seq = seq
         self.lan = lan
@@ -19,7 +21,8 @@ class artigo() :
         self.pages = pages
         self.key_words = key_words
 
-class autor() :
+
+class Autor:
     def __init__(self, article, authorFirstname, authorMiddlename, authorLastname, authorAffiliation, authorCountry, authorEmail, orcid):
         self.article = article
         self.authorFirstname = authorFirstname
@@ -31,11 +34,12 @@ class autor() :
         self.orcid = orcid
 
 def salvar_autores(lista_autores):
-    filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo2.csv"
+    # filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo_autores.csv"
+    filename = folder_base_path + "/arquivo_autores.csv"
     try:
         with open(filename, mode='a') as arquivo:
             field_names = ['article', 'authorFirstname', 'authorMiddlename', 'authorLastname', 'authorAffiliation',
-                           'authorAffiliationEn', 'authorCountry', 'authorEmail', 'orcid', 'authorBio', 'authorBioEn']
+                           'authorCountry', 'authorEmail', 'orcid']
             writer = csv.writer(arquivo, delimiter=';', lineterminator='\n')
             if os.stat(filename).st_size == 0:
                 writer.writerow(field_names)
@@ -64,7 +68,7 @@ def monta_obj_artigo(seq, link, strPag):
 
     chaves = chaves[: chaves.__len__() - 1]
     print(chaves)
-    a = artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag, chaves)
+    a = Artigo(seq, 'EN', resumo.text, titulo.text, qtd_pag, chaves)
 
     new_link = link.replace('keywords#keywords','authors#authors')
     driver.get(new_link)
@@ -96,14 +100,14 @@ def monta_obj_autor(seq, autores, filiacoes):
             country = texto[texto.__len__()-1].strip()  ## pode ser que mude
         filiacao = texto[0]
 
-        aut = autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country, '', '')
+        aut = Autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country, '', '')
         lista_autores.append(aut)
 
     salvar_autores(lista_autores)
 
 
 def salvar_artigos(lista_artigos):
-    filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo.csv"
+    filename = folder_base_path + "/arquivo_artigos.csv"
     try:
         with open(filename, 'w') as f:
             writer = csv.writer(f, delimiter=';')
@@ -202,6 +206,9 @@ parent_dir = path.abspath(path.join(basepath, os.pardir))
 filepath = path.abspath(path.join(parent_dir, "chromedriver.exe"))
 print(filepath)
 driver = webdriver.Chrome(executable_path=filepath, options=chrome_options)
+
+folder_base_path = path.dirname(__file__) + "/arquivos"
+Path(folder_base_path).mkdir(parents=True, exist_ok=True)
 
 start_url = "https://ieeexplore.ieee.org/xpl/conhome/1000131/all-proceedings"
 driver.get(start_url)
