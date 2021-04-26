@@ -4,10 +4,12 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
+from browsermobproxy import Server
 import os
 from os import path
 from pathlib import Path
 import csv
+import time
 import json
 import pandas
 
@@ -33,6 +35,7 @@ class Autor:
         self.authorEmail = authorEmail
         self.orcid = orcid
 
+
 def salvar_autores(lista_autores):
     # filename = "C:\\Users\\Fred\\Desktop\\TCC\\arquivo_autores.csv"
     filename = folder_base_path + "/arquivo_autores.csv"
@@ -50,11 +53,19 @@ def salvar_autores(lista_autores):
     except BaseException as e:
         print('Excecao: ', filename)
 
+
 def monta_obj_artigo(seq, link, strPag):
     driver.get(link)
     pagina = strPag.split(":")
-    num_pag = pagina[1].split("-")
-    qtd_pag = int(num_pag[1].strip()) - int(num_pag[0].strip()) + 1 # removendo espacos em branco
+    if pagina.__len__() > 1:
+        num_pag = pagina[1].split("-")
+        if num_pag.__len__() > 1:
+            qtd_pag = int(num_pag[1].strip()) - int(num_pag[0].strip()) + 1  # removendo espacos em branco
+        else:
+            qtd_pag = 1
+    else:
+        qtd_pag = ""
+
     WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.CLASS_NAME, 'document-title')))
     resumo = driver.find_element_by_class_name('abstract-text.row')
     print("Abstract: ", resumo.text)
@@ -74,18 +85,32 @@ def monta_obj_artigo(seq, link, strPag):
     driver.get(new_link)
 
     WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH,
-                                                                     '//*[@id="authors"]/div[1]/xpl-author-item/div/div/div/div[1]/a')))
-    autores = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[1]/a')
-    filiacoes = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[2]/div')
+                                                                     '//*[@id="authors"]')))
+    try:
+        obj_autores = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div')
+        autores = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[1]/a')
+        filiacoes = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[2]/div')
+    except Exception as e:
+        print(e)
+        autores = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[1]/xpl-modal/a')
+        filiacoes = driver.find_elements_by_xpath('//*[@id="authors"]/div/xpl-author-item/div/div/div/div[2]/div')
 
-    monta_obj_autor(seq, autores, filiacoes)
+    # monta_obj_autor(seq, autores, filiacoes)
+    monta_obj_autor(seq, obj_autores)
     return a
 
-def monta_obj_autor(seq, autores, filiacoes):
+
+def monta_obj_autor(seq, obj_autores):
 
     lista_autores = []
-    for i in range(autores.__len__()):
-        nome_autor = autores[i].text.split(' ')
+    for aut in obj_autores:
+        country = ""
+        try:
+            autor = aut.find_element_by_xpath("div[1]/a")
+        except Exception as e:
+            print(e)
+            autor = aut.find_element_by_xpath("div[1]/xpl-modal/a")
+        nome_autor = autor.text.split(' ')
         primeiro_nome = nome_autor[0]
         ultimo_nome = nome_autor[nome_autor.__len__() - 1]
         nome_meio = ""
@@ -93,12 +118,16 @@ def monta_obj_autor(seq, autores, filiacoes):
         for j in range(0, ran):
             nome_meio = nome_meio + nome_autor[j+1] + " "
         nome_meio = nome_meio.strip()
-        filiacao = filiacoes[i].text
-        texto = filiacao.split(',')
-        country = ""
-        if texto.__len__() > 1:
-            country = texto[texto.__len__()-1].strip()  ## pode ser que mude
-        filiacao = texto[0]
+        try:
+            filiacoes = aut.find_element_by_xpath("div[2]/div")
+            filiacao = filiacoes.text
+            texto = filiacao.split(',')
+            if texto.__len__() > 1:
+                country = texto[texto.__len__() - 1].strip()  ## pode ser que mude
+            filiacao = texto[0]
+        except Exception as e:
+            print(e)
+            filiacao = ""
 
         aut = Autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country, '', '')
         lista_autores.append(aut)
@@ -108,6 +137,8 @@ def monta_obj_autor(seq, autores, filiacoes):
 
 def salvar_artigos(lista_artigos):
     filename = folder_base_path + "/arquivo_artigos.csv"
+    global quantidade_artigos
+    quantidade_artigos = quantidade_artigos + lista_artigos.__len__()
     try:
         with open(filename, 'w') as f:
             writer = csv.writer(f, delimiter=';')
@@ -117,6 +148,7 @@ def salvar_artigos(lista_artigos):
             f.close()
     except BaseException as e:
         print('Excecao: ', filename)
+
 
 def pegar_links_artigos(link_simposio):
     quant = driver.find_element_by_xpath('//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')
@@ -194,7 +226,7 @@ def pegar_links_artigos(link_simposio):
     salvar_artigos(nova_lista_artigos)
 
 
-
+start_time = time.time()
 chrome_options = Options()
 
 # chrome_options.add_argument("--headless")
@@ -238,59 +270,15 @@ print("teste")
 # publicacoes = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
 
 """Entrando no evento"""
-artigo_url = str(lista_artigos[0])
+artigo_url = str(lista_artigos[21])
 driver.get(artigo_url)
 
 WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
 
+quantidade_artigos = 0
 pegar_links_artigos(artigo_url)
 
 driver.quit()
+print("--- %s seconds ---" % (time.time() - start_time))
+print("para %s " % quantidade_artigos)
 exit()
-
-WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="LayoutWrapper"]/div/div/div/div[5]/div/xpl-root/div/xpl-document-details/div/div[1]/div/div[2]/section/div[2]/div/xpl-document-abstract/section/div[3]/div[1]/div/div/div')))
-resumo = driver.find_element_by_xpath('//*[@id="LayoutWrapper"]/div/div/div/div[5]/div/xpl-root/div/xpl-document-details/div/div[1]/div/div[2]/section/div[2]/div/xpl-document-abstract/section/div[3]/div[1]/div/div/div')
-
-#resumo_div = resumo.find_elements_by_xpath('//xpl-document-abstract/section/div[3]/div[1]/div/div/div')
-
-resumo_texto = resumo.text
-
-#resumao = resumo
-
-print(resumo_texto)
-
-#autores
-#autores = driver.find_elements_by_class_name('authors-info')
-
-# autores2 = driver.find_element_by_id('authors-header')
-
-# ActionChains(driver).move_to_element(autores2).click()
-#autores2.click()
-
-artigo_url = artigo_url + "/authors#authors"
-driver.get(artigo_url)
-
-
-WebDriverWait(driver, 120).until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'authors-accordion-container')))
-
-list_autores = driver.find_elements_by_class_name('authors-accordion-container')
-
-nome_autor = list_autores[0].find_element_by_xpath('//div/div/div/div/a')
-filiacao_autor = list_autores[0].find_element_by_xpath('//div/div/div/div/div')
-
-for autor in list_autores:
-    autor_texto = str.splitlines(autor.text)
-    autor_nome = autor_texto[0]
-    autor_filiacao = autor_texto[1]
-    print(autor_nome)
-    print(autor_filiacao)
-    autor_link = autor.find_elements_by_tag_name('a')[0].get_attribute('href')
-    print(autor_link)
-
-
-
-# Vai ser usado para pegar o link para a Bio do author ;)
-# list_autores[0].find_elements_by_tag_name('a')[0].get_attribute('href')
-
-
-driver.quit()
