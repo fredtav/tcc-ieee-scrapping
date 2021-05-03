@@ -3,15 +3,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.common.action_chains import ActionChains
-from browsermobproxy import Server
 import os
 from os import path
 from pathlib import Path
 import csv
 import time
-import json
-import pandas
+import logging
 
 
 class Artigo:
@@ -25,15 +22,14 @@ class Artigo:
 
 
 class Autor:
-    def __init__(self, article, authorFirstname, authorMiddlename, authorLastname, authorAffiliation, authorCountry, authorEmail, orcid):
+    def __init__(self, article, authorFirstname, authorMiddlename, authorLastname, authorAffiliation, authorCountry):
         self.article = article
         self.authorFirstname = authorFirstname
         self.authorMiddlename = authorMiddlename
         self.authorLastname = authorLastname
         self.authorAffiliation = authorAffiliation
         self.authorCountry = authorCountry
-        self.authorEmail = authorEmail
-        self.orcid = orcid
+        self.authorBio = ""
 
 
 def salvar_autores(lista_autores):
@@ -42,13 +38,13 @@ def salvar_autores(lista_autores):
     try:
         with open(filename, mode='a') as arquivo:
             field_names = ['article', 'authorFirstname', 'authorMiddlename', 'authorLastname', 'authorAffiliation',
-                           'authorCountry', 'authorEmail', 'orcid']
+                           'authorCountry', 'authorBio']
             writer = csv.writer(arquivo, delimiter=';', lineterminator='\n')
             if os.stat(filename).st_size == 0:
                 writer.writerow(field_names)
             for aut in lista_autores:
                 writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname,
-                                 aut.authorAffiliation, aut.authorCountry, aut.authorEmail, aut.orcid])
+                                 aut.authorAffiliation, aut.authorCountry, aut.authorBio])
             arquivo.close()
     except BaseException as e:
         print('Excecao: ', filename)
@@ -103,6 +99,7 @@ def monta_obj_artigo(seq, link, strPag):
 def monta_obj_autor(seq, obj_autores):
 
     lista_autores = []
+    lista_link_autores = []
     for aut in obj_autores:
         country = ""
         try:
@@ -124,13 +121,28 @@ def monta_obj_autor(seq, obj_autores):
             texto = filiacao.split(',')
             if texto.__len__() > 1:
                 country = texto[texto.__len__() - 1].strip()  ## pode ser que mude
-            filiacao = texto[0]
+                filiacao = filiacao.replace(", " + str(country), "")
+            else:
+                filiacao = texto[0]
         except Exception as e:
             print(e)
             filiacao = ""
-
-        aut = Autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country, '', '')
+        link_autor = autor.get_attribute('href')
+        lista_link_autores.append(link_autor)
+        aut = Autor(seq, primeiro_nome, nome_meio, ultimo_nome, filiacao, country)
         lista_autores.append(aut)
+
+    for i in range(lista_link_autores.__len__()):
+        try:
+            driver.get(lista_link_autores[i])
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH,
+                                                                             '//*[@id="authorProfile"]/div[3]/div[1]/div/div[2]/div[1]')))
+            # driver.find_element_by_xpath('//*[@id="authorProfile"]/div[3]/div[1]/div/div[2]/div[2]/span[2]/a').click()
+            bio = driver.find_element_by_xpath('//*[@id="authorProfile"]/div[3]/div[1]/div/div[2]/div[2]/span[1]')
+            print(bio.text)
+            lista_autores[i].authorBio = bio.text
+        except Exception as e:
+            print(e)
 
     salvar_autores(lista_autores)
 
@@ -141,13 +153,15 @@ def salvar_artigos(lista_artigos):
     quantidade_artigos = quantidade_artigos + lista_artigos.__len__()
     try:
         with open(filename, 'w') as f:
-            writer = csv.writer(f, delimiter=';')
-            writer.writerow(['seq','lan','abstract','title','pages','keyWords'])
+            writer = csv.writer(f, delimiter=';', lineterminator='\n')
+            writer.writerow(['seq','lan','title','pages','keyWords','abstract'])
             for art in lista_artigos:
-                writer.writerow([art.seq, art.lan, art.abstract.encode("utf-8"), art.title, art.pages, art.key_words.encode("utf-8")])
+                key_w = art.key_words.replace("\n", "")
+                abst = art.abstract.replace("Abstract:\n", "")
+                writer.writerow([art.seq, art.lan, art.title, art.pages, key_w.encode("utf-8"), abst.encode("utf-8")])
             f.close()
     except BaseException as e:
-        print('Excecao: ', filename)
+        print('Excecao: ', e)
 
 
 def pegar_links_artigos(link_simposio):
@@ -226,11 +240,14 @@ def pegar_links_artigos(link_simposio):
     salvar_artigos(nova_lista_artigos)
 
 
+logging.basicConfig(format='%(asctime)s %(message)s', filename='scrapper.log', level=logging.INFO)
+logging.info('Início da execução')
+
 start_time = time.time()
 chrome_options = Options()
 
-# chrome_options.add_argument("--headless")
-# chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--disable-gpu")
 
 # Caminho relativo, preciso revisar
 basepath = path.dirname(__file__)
@@ -262,7 +279,6 @@ for conference in list_conferences:
     i = i + 1
 
 
-print("teste")
 # proceeding_url = "https://ieeexplore.ieee.org/xpl/conhome/8094486/proceeding"
 # driver.get(proceeding_url);
 #
@@ -270,7 +286,7 @@ print("teste")
 # publicacoes = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
 
 """Entrando no evento"""
-artigo_url = str(lista_artigos[21])
+artigo_url = str(lista_artigos[0])
 driver.get(artigo_url)
 
 WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
@@ -281,4 +297,5 @@ pegar_links_artigos(artigo_url)
 driver.quit()
 print("--- %s seconds ---" % (time.time() - start_time))
 print("para %s " % quantidade_artigos)
+logging.info('Fim da execução')
 exit()
