@@ -9,6 +9,7 @@ from pathlib import Path
 import csv
 import time
 import logging
+import sys
 
 
 class Artigo:
@@ -46,8 +47,10 @@ def salvar_autores(lista_autores):
                 writer.writerow([aut.article, aut.authorFirstname, aut.authorMiddlename, aut.authorLastname,
                                  aut.authorAffiliation, aut.authorCountry, aut.authorBio])
             arquivo.close()
+            logging.info("Arquivo de autores salvo")
     except BaseException as e:
-        print('Excecao: ', filename)
+        print(e)
+        logging.error(e)
 
 
 def monta_obj_artigo(seq, link, strPag):
@@ -160,8 +163,10 @@ def salvar_artigos(lista_artigos):
                 abst = art.abstract.replace("Abstract:\n", "")
                 writer.writerow([art.seq, art.lan, art.title, art.pages, key_w.encode("utf-8"), abst.encode("utf-8")])
             f.close()
+            logging.info("Arquivo de artigos salvo")
     except BaseException as e:
-        print('Excecao: ', e)
+        print(e)
+        logging.error(e)
 
 
 def pegar_links_artigos(link_simposio):
@@ -175,9 +180,6 @@ def pegar_links_artigos(link_simposio):
     print(total_artigos)
 
     # pegar links da primeira pagina
-
-    # artigos = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
-
     artigos = driver.find_elements_by_xpath('//div/xpl-issue-results-items/div[1]/div[2]/ul/li[2]/xpl-view-html/div/a')
     quant_artigos = artigos.__len__()
 
@@ -221,7 +223,6 @@ def pegar_links_artigos(link_simposio):
 
 
         for art in artigos:
-            # artigo = art.find_element_by_xpath('/div/xpl-issue-results-items/div[1]/div[1]/div[2]/h2/a')
             print(art.get_attribute('href'))
             link_artigo = art.get_attribute('href')
             lista_links.append(str(link_artigo + "keywords#keywords"))
@@ -246,8 +247,8 @@ logging.info('Início da execução')
 start_time = time.time()
 chrome_options = Options()
 
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--disable-gpu")
+# chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--disable-gpu")
 
 # Caminho relativo, preciso revisar
 basepath = path.dirname(__file__)
@@ -259,36 +260,36 @@ driver = webdriver.Chrome(executable_path=filepath, options=chrome_options)
 folder_base_path = path.dirname(__file__) + "/arquivos"
 Path(folder_base_path).mkdir(parents=True, exist_ok=True)
 
-start_url = "https://ieeexplore.ieee.org/xpl/conhome/1000131/all-proceedings"
-driver.get(start_url)
-driver.maximize_window()
-print(driver.page_source.encode("utf-8"))
+if sys.argv.__len__() > 1:
+    artigo_url = str(sys.argv[1])
+else:
+    start_url = "https://ieeexplore.ieee.org/xpl/conhome/1000131/all-proceedings"
+    driver.get(start_url)
+    driver.maximize_window()
+    print(driver.page_source.encode("utf-8"))
 
-WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.CLASS_NAME, 'conference-records')))
-# conferences = driver.find_elements_by_xpath('//*[@id="LayoutWrapper"]/div/div/div/div[4]/div/xpl-root/div/xpl-xpl-delegate/xpl-conference-home/div/div[1]/div[3]/div/section/xpl-conference-toc/div[1]/div[2]/div/xpl-conference-all-proceedings/div/div/div[2]/ul/li')
-conferences = driver.find_elements_by_class_name('conference-records')
-list_conferences_string = '//*[@id="LayoutWrapper"]/div/div/div/div[3]/div/xpl-root/div/xpl-xpl-delegate/xpl-conference-home/div/div[1]/div[3]/div/section/xpl-conference-toc/div[1]/div[2]/div/xpl-conference-all-proceedings/div/div/div[2]/ul/li'
-list_conferences = driver.find_elements_by_xpath(list_conferences_string)
+    WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.CLASS_NAME, 'conference-records')))
+    # conferences = driver.find_elements_by_xpath('//*[@id="LayoutWrapper"]/div/div/div/div[4]/div/xpl-root/div/xpl-xpl-delegate/xpl-conference-home/div/div[1]/div[3]/div/section/xpl-conference-toc/div[1]/div[2]/div/xpl-conference-all-proceedings/div/div/div[2]/ul/li')
+    conferences = driver.find_elements_by_class_name('conference-records')
+    list_conferences_string = '//*[@id="LayoutWrapper"]/div/div/div/div[3]/div/xpl-root/div/xpl-xpl-delegate/xpl-conference-home/div/div[1]/div[3]/div/section/xpl-conference-toc/div[1]/div[2]/div/xpl-conference-all-proceedings/div/div/div[2]/ul/li'
+    list_conferences = driver.find_elements_by_xpath(list_conferences_string)
 
-lista_artigos = []
+    lista_artigos = []
 
-i = 1
-for conference in list_conferences:
-    s = list_conferences_string + '[' + str(i) + ']/a'
-    lista_artigos.append(driver.find_element_by_xpath(s).get_attribute('href'))
-    i = i + 1
+    i = 1
+    for conference in list_conferences:
+        s = list_conferences_string + '[' + str(i) + ']/a'
+        lista_artigos.append(driver.find_element_by_xpath(s).get_attribute('href'))
+        i = i + 1
 
 
-# proceeding_url = "https://ieeexplore.ieee.org/xpl/conhome/8094486/proceeding"
-# driver.get(proceeding_url);
-#
-# WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]')))
-# publicacoes = driver.find_elements_by_xpath('//*[@id="publicationIssueMainContent"]/div[2]/div/div[2]/div/xpl-issue-results-list/div[2]/div')
-
-"""Entrando no evento"""
-artigo_url = str(lista_artigos[0])
-driver.get(artigo_url)
-
+    """Entrando no evento"""
+    artigo_url = str(lista_artigos[0])
+try:
+    driver.get(artigo_url)
+except Exception as e:
+    logging.error(e)
+    exit(1)
 WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, '//*[@id="publicationIssueMainContent"]/div[1]/xpl-issue-search-dashboard/div/div[2]/div[1]/div/div/span[1]/span[2]')))
 
 quantidade_artigos = 0
